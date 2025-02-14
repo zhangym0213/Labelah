@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub 视频 & JSON 预览</title>
+    <title>GitHub 视频 & JSON 编辑</title>
     <style>
         body {
             display: flex;
@@ -23,7 +23,7 @@
         #textSection {
             flex: 2;
         }
-        input {
+        input, button {
             width: 90%;
             padding: 5px;
             margin-bottom: 10px;
@@ -55,24 +55,26 @@
         <video id="videoPlayer" controls></video>
     </div>
 
-    <!-- 右侧文字区域 -->
+    <!-- 右侧 JSON 文字区域 -->
     <div id="textSection">
         <h3>搜索 JSON 文件</h3>
         <input type="text" id="jsonSearch" placeholder="输入 JSON 文件名称">
         <select id="jsonList" size="5"></select>
 
-        <h4>筛选 JSON 内容</h4>
+        <h4>筛选 JSON 内容 <span id="countDisplay">(0)</span></h4>
         <input type="text" id="filterVideo" placeholder="按 Video 筛选">
         <input type="text" id="filterSource" placeholder="按 Source 筛选">
         <input type="text" id="filterTask" placeholder="按 Task 筛选">
 
-        <textarea id="jsonViewer" readonly></textarea>
+        <textarea id="jsonViewer"></textarea>
+        <button id="saveJson">保存修改</button>
     </div>
 
     <script>
         const repoOwner = "zhangym0213";  // GitHub 用户名
         const repoName = "Labelah";       // GitHub 仓库名
-        let jsonData = [];  // 存储当前 JSON 数据
+        let jsonData = [];  // 当前 JSON 数据
+        let jsonFilePath = "";  // 当前选中的 JSON 文件路径
 
         // 加载视频文件列表
         async function loadVideos() {
@@ -105,14 +107,16 @@
             data.forEach(file => {
                 if (file.name.endsWith(".json")) {
                     let option = document.createElement("option");
-                    option.value = file.download_url;
+                    option.value = file.path;
                     option.textContent = file.name;
                     jsonList.appendChild(option);
                 }
             });
 
             jsonList.addEventListener("change", async () => {
-                const res = await fetch(jsonList.value);
+                jsonFilePath = jsonList.value;
+                const fileUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${jsonFilePath}`;
+                const res = await fetch(fileUrl);
                 jsonData = await res.json();
                 applyJsonFilters();
             });
@@ -131,12 +135,61 @@
             });
 
             document.getElementById("jsonViewer").value = JSON.stringify(filteredData, null, 2);
+            document.getElementById("countDisplay").textContent = `(${filteredData.length})`;
         }
 
         // 监听筛选框变化
         document.getElementById("filterVideo").addEventListener("input", applyJsonFilters);
         document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
         document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
+
+        // 提交修改的 JSON 数据到 GitHub
+        async function saveJsonToGitHub() {
+            if (!jsonFilePath) {
+                alert("请先选择 JSON 文件！");
+                return;
+            }
+
+            const newData = document.getElementById("jsonViewer").value;
+            try {
+                JSON.parse(newData);  // 检查 JSON 格式是否正确
+            } catch (e) {
+                alert("JSON 格式错误，请检查后再提交！");
+                return;
+            }
+
+            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFilePath}`;
+            const res = await fetch(apiUrl);
+            const fileData = await res.json();
+            const sha = fileData.sha;  // 需要提供文件的 SHA 才能修改
+
+            const updateData = {
+                message: "更新 JSON 文件",
+                content: btoa(unescape(encodeURIComponent(newData))),  // Base64 编码
+                sha: sha
+            };
+
+            const token = "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";
+            if (!token) return;
+
+            const response = await fetch(apiUrl, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `token ${token}`,
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            if (response.ok) {
+                alert("JSON 文件已成功更新！");
+            } else {
+                alert("更新失败，请检查权限或 PAT 令牌！");
+            }
+        }
+
+        document.getElementById("saveJson").addEventListener("click", saveJsonToGitHub);
 
         // 过滤搜索功能
         function setupSearch(inputId, listId) {
