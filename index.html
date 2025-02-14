@@ -3,56 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub 视频 & JSON 编辑</title>
+    <title>视频与 JSON 编辑</title>
     <style>
         body {
             display: flex;
-            height: 100vh;
-            margin: 0;
+            flex-direction: row;
             font-family: Arial, sans-serif;
         }
-        #videoSection, #textSection {
-            display: flex;
-            flex-direction: column;
+        .container {
             padding: 10px;
         }
-        #videoSection {
-            flex: 3;
-            border-right: 2px solid #ccc;
+        #videoContainer {
+            width: 60%;
         }
-        #textSection {
-            flex: 2;
+        #jsonContainer {
+            width: 40%;
         }
-        input, button {
-            width: 90%;
-            padding: 5px;
-            margin-bottom: 10px;
-        }
-        select {
-            width: 95%;
-            padding: 5px;
-            height: 120px;
-        }
-        video {
-            width: 100%;
-            max-height: 60vh;
-            margin-top: 10px;
+        select, input, button {
+            margin: 5px;
         }
         textarea {
             width: 100%;
-            height: 50vh;
-            resize: none;
-            margin-top: 10px;
+            height: 300px;
         }
     </style>
 </head>
 <body>
-    <!-- 左侧视频区域 -->
-    <div id="videoSection">
-        <h3>搜索视频</h3>
-        <input type="text" id="videoSearch" placeholder="输入视频名称">
-        <select id="videoList" size="5"></select>
-        <video id="videoPlayer" controls></video>
+
+    <!-- 视频选择部分 -->
+    <div class="container" id="videoContainer">
+        <h2>视频选择</h2>
+        <input type="text" id="videoSearch" placeholder="搜索视频">
+        <select id="videoSelect"></select>
+        <video id="videoPlayer" width="100%" controls></video>
+
+        <h3>跳转视频</h3>
+        <input type="number" id="jumpTime" placeholder="输入秒数">
+        <button onclick="jumpToTime()">跳转</button>
     </div>
 
     <!-- 右侧 JSON 文字区域 -->
@@ -205,7 +192,18 @@
                 }
             });
         }
-
+        
+        // 视频跳转功能
+        function jumpToTime() {
+            const video = document.getElementById("videoPlayer");
+            const timeInput = document.getElementById("jumpTime").value;
+            const time = parseFloat(timeInput);
+            if (!isNaN(time) && time >= 0) {
+                video.currentTime = time;
+            } else {
+                alert("请输入有效的秒数！");
+            }
+        }
         // 初始化
         loadVideos();
         loadJsonFiles();
