@@ -3,193 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>视频与 JSON 编辑</title>
+    <title>GitHub 视频 & JSON 编辑</title>
     <style>
         body {
             display: flex;
-            flex-direction: row;
+            height: 100vh;
+            margin: 0;
             font-family: Arial, sans-serif;
         }
-        .container {
+        #videoSection, #textSection {
+            display: flex;
+            flex-direction: column;
             padding: 10px;
         }
-        #videoContainer {
-            width: 60%;
+        #videoSection {
+            flex: 3;
+            border-right: 2px solid #ccc;
         }
-        #jsonContainer {
-            width: 40%;
+        #textSection {
+            flex: 2;
         }
-        select, input, button {
-            margin: 5px;
+        input, button {
+            width: 90%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        select {
+            width: 95%;
+            padding: 5px;
+            height: 120px;
+        }
+        video {
+            width: 100%;
+            max-height: 60vh;
+            margin-top: 10px;
         }
         textarea {
             width: 100%;
-            height: 300px;
+            height: 50vh;
+            resize: none;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-
-    <!-- 视频选择部分 -->
-    <div class="container" id="videoContainer">
-        <h2>视频选择</h2>
-        <input type="text" id="videoSearch" placeholder="搜索视频">
-        <select id="videoSelect"></select>
-        <video id="videoPlayer" width="100%" controls></video>
+    <!-- 左侧视频区域 -->
+    <div id="videoSection">
+        <h3>搜索视频</h3>
+        <input type="text" id="videoSearch" placeholder="输入视频名称">
+        <select id="videoList" size="5"></select>
+        <video id="videoPlayer" controls></video>
     </div>
 
-    <!-- JSON 选择 & 编辑部分 -->
-    <div class="container" id="jsonContainer">
-        <h2>JSON 编辑</h2>
-        <input type="text" id="jsonSearch" placeholder="搜索 JSON 文件">
-        <select id="jsonSelect"></select>
+    <!-- 右侧 JSON 文字区域 -->
+    <div id="textSection">
+        <h3>搜索 JSON 文件</h3>
+        <input type="text" id="jsonSearch" placeholder="输入 JSON 文件名称">
+        <select id="jsonList" size="5"></select>
 
-        <h3>筛选条件</h3>
-        <label>Video:</label>
-        <select id="filterVideo"></select>
-        <label>Source:</label>
-        <select id="filterSource"></select>
-        <label>Task:</label>
-        <select id="filterTask"></select>
+        <h4>筛选 JSON 内容 <span id="countDisplay">(0)</span></h4>
+        <input type="text" id="filterVideo" placeholder="按 Video 筛选">
+        <input type="text" id="filterSource" placeholder="按 Source 筛选">
+        <input type="text" id="filterTask" placeholder="按 Task 筛选">
 
-        <h3>JSON 数据</h3>
-        <textarea id="jsonEditor"></textarea>
-        <button onclick="saveJson()">保存 JSON</button>
+        <textarea id="jsonViewer"></textarea>
+        <button id="saveJson">保存修改</button>
     </div>
 
     <script>
-        const repoOwner = "zhangym0213";  
-        const repoName = "Labelah";  
-        const videoFolder = "videos";  
-        const jsonFolder = "data";  
-        const token = "your-github-token";  
+        const repoOwner = "zhangym0213";  // GitHub 用户名
+        const repoName = "Labelah";       // GitHub 仓库名
+        let jsonData = [];  // 当前 JSON 数据
+        let jsonFilePath = "";  // 当前选中的 JSON 文件路径
 
         // 加载视频文件列表
         async function loadVideos() {
-            const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${videoFolder}`);
-            const data = await response.json();
-            const videoSelect = document.getElementById("videoSelect");
-            videoSelect.innerHTML = "";
+            const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/videos`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const videoList = document.getElementById("videoList");
+
             data.forEach(file => {
-                if (file.name.endsWith(".mp4")) {
-                    const option = document.createElement("option");
+                if (file.name.endsWith(".mp4") || file.name.endsWith(".webm")) {
+                    let option = document.createElement("option");
                     option.value = file.download_url;
                     option.textContent = file.name;
-                    videoSelect.appendChild(option);
+                    videoList.appendChild(option);
                 }
             });
-        }
 
-        // 监听视频选择
-        document.getElementById("videoSelect").addEventListener("change", function() {
-            document.getElementById("videoPlayer").src = this.value;
-        });
+            videoList.addEventListener("change", () => {
+                document.getElementById("videoPlayer").src = videoList.value;
+            });
+        }
 
         // 加载 JSON 文件列表
         async function loadJsonFiles() {
-            const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFolder}`);
-            const data = await response.json();
-            const jsonSelect = document.getElementById("jsonSelect");
-            jsonSelect.innerHTML = "";
+            const url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/data`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const jsonList = document.getElementById("jsonList");
+
             data.forEach(file => {
                 if (file.name.endsWith(".json")) {
-                    const option = document.createElement("option");
-                    option.value = file.name;
+                    let option = document.createElement("option");
+                    option.value = file.path;
                     option.textContent = file.name;
-                    jsonSelect.appendChild(option);
+                    jsonList.appendChild(option);
                 }
             });
-        }
 
-        let currentJsonFile = "";
-        let currentJsonData = [];
-
-        // 监听 JSON 选择
-        document.getElementById("jsonSelect").addEventListener("change", function() {
-            loadJson(this.value);
-        });
-
-        // 加载 JSON 文件内容
-        async function loadJson(filename) {
-            currentJsonFile = filename;
-            const response = await fetch(`https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${jsonFolder}/${filename}`);
-            const data = await response.json();
-            currentJsonData = data;
-            document.getElementById("jsonEditor").value = JSON.stringify(data, null, 2);
-            populateFilters(data);
-        }
-
-        // 生成筛选选项
-        function populateFilters(data) {
-            const videoSet = new Set();
-            const sourceSet = new Set();
-            const taskSet = new Set();
-
-            data.forEach(item => {
-                if (item.Video) videoSet.add(item.Video);
-                if (item.Source) sourceSet.add(item.Source);
-                if (item.Task) taskSet.add(item.Task);
-            });
-
-            createDropdown("filterVideo", videoSet);
-            createDropdown("filterSource", sourceSet);
-            createDropdown("filterTask", taskSet);
-        }
-
-        // 生成下拉选项
-        function createDropdown(id, values) {
-            const select = document.getElementById(id);
-            select.innerHTML = '<option value="">全部</option>';
-            values.forEach(value => {
-                const option = document.createElement("option");
-                option.value = value;
-                option.textContent = value;
-                select.appendChild(option);
+            jsonList.addEventListener("change", async () => {
+                jsonFilePath = jsonList.value;
+                const fileUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${jsonFilePath}`;
+                const res = await fetch(fileUrl);
+                jsonData = await res.json();
+                applyJsonFilters();
             });
         }
 
-        // 监听筛选
-        document.querySelectorAll("#filterVideo, #filterSource, #filterTask").forEach(select => {
-            select.addEventListener("change", filterJson);
-        });
+        // 过滤 JSON 数据
+        function applyJsonFilters() {
+            const videoFilter = document.getElementById("filterVideo").value.toLowerCase();
+            const sourceFilter = document.getElementById("filterSource").value.toLowerCase();
+            const taskFilter = document.getElementById("filterTask").value.toLowerCase();
 
-        // 过滤 JSON
-        function filterJson() {
-            const video = document.getElementById("filterVideo").value;
-            const source = document.getElementById("filterSource").value;
-            const task = document.getElementById("filterTask").value;
+            let filteredData = jsonData.filter(item => {
+                return (!videoFilter || (item.Video && item.Video.toLowerCase().includes(videoFilter))) &&
+                       (!sourceFilter || (item.Source && item.Source.toLowerCase().includes(sourceFilter))) &&
+                       (!taskFilter || (item.Task && item.Task.toLowerCase().includes(taskFilter)));
+            });
 
-            const filteredData = currentJsonData.filter(item =>
-                (!video || item.Video === video) &&
-                (!source || item.Source === source) &&
-                (!task || item.Task === task)
-            );
-
-            document.getElementById("jsonEditor").value = JSON.stringify(filteredData, null, 2);
+            document.getElementById("jsonViewer").value = JSON.stringify(filteredData, null, 2);
+            document.getElementById("countDisplay").textContent = `(${filteredData.length})`;
         }
 
-        // 保存 JSON
-        async function saveJson() {
-            if (!currentJsonFile) {
+        // 监听筛选框变化
+        document.getElementById("filterVideo").addEventListener("input", applyJsonFilters);
+        document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
+        document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
+
+        // 提交修改的 JSON 数据到 GitHub
+        async function saveJsonToGitHub() {
+            if (!jsonFilePath) {
                 alert("请先选择 JSON 文件！");
                 return;
             }
 
-            const updatedContent = document.getElementById("jsonEditor").value;
-            const encodedContent = btoa(unescape(encodeURIComponent(updatedContent)));
+            const newData = document.getElementById("jsonViewer").value;
+            try {
+                JSON.parse(newData);  // 检查 JSON 格式是否正确
+            } catch (e) {
+                alert("JSON 格式错误，请检查后再提交！");
+                return;
+            }
 
-            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFolder}/${currentJsonFile}`;
-
-            // 获取最新 sha 值
+            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFilePath}`;
             const res = await fetch(apiUrl);
             const fileData = await res.json();
-            const sha = fileData.sha;
+            const sha = fileData.sha;  // 需要提供文件的 SHA 才能修改
 
             const updateData = {
-                message: `更新 JSON: ${currentJsonFile}`,
-                content: encodedContent,
+                message: "更新 JSON 文件",
+                content: btoa(unescape(encodeURIComponent(newData))),  // Base64 编码
                 sha: sha
             };
+
+            const token = prompt("请输入 GitHub 个人访问令牌 (PAT) 以保存修改：");
+            if (!token) return;
 
             const response = await fetch(apiUrl, {
                 method: "PUT",
@@ -201,18 +182,35 @@
                 body: JSON.stringify(updateData)
             });
 
+            const resJson = await response.json();
+            console.log(resJson);  // 打印 API 响应内容，检查错误信息
+
             if (response.ok) {
                 alert("JSON 文件已成功更新！");
-                loadJson(currentJsonFile); // 更新后自动加载最新内容
             } else {
-                alert("更新失败，请检查权限或 PAT 令牌！");
+                alert(`更新失败：${resJson.message}`);
             }
         }
 
-        // 页面加载时初始化
+        document.getElementById("saveJson").addEventListener("click", saveJsonToGitHub);
+
+        // 过滤搜索功能
+        function setupSearch(inputId, listId) {
+            document.getElementById(inputId).addEventListener("input", function () {
+                const filter = this.value.toLowerCase();
+                const options = document.getElementById(listId).options;
+
+                for (let option of options) {
+                    option.style.display = option.textContent.toLowerCase().includes(filter) ? "" : "none";
+                }
+            });
+        }
+
+        // 初始化
         loadVideos();
         loadJsonFiles();
+        setupSearch("videoSearch", "videoList");
+        setupSearch("jsonSearch", "jsonList");
     </script>
-
 </body>
 </html>
