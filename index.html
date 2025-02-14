@@ -53,7 +53,26 @@
         <input type="text" id="videoSearch" placeholder="输入视频名称">
         <select id="videoList" size="5"></select>
         <video id="videoPlayer" controls></video>
+
+        <!-- 新增跳转逻辑 -->
+        <h4>跳转到时间</h4>
+        <input type="number" id="jumpTime" placeholder="输入秒数" step="0.1">
+        <button onclick="jumpToTime()">跳转</button>
     </div>
+
+    <script>
+        // 视频跳转功能
+        function jumpToTime() {
+            const video = document.getElementById("videoPlayer");
+            const timeInput = document.getElementById("jumpTime").value;
+            const time = parseFloat(timeInput);
+            if (!isNaN(time) && time >= 0) {
+                video.currentTime = time;
+            } else {
+                alert("请输入有效的秒数！");
+            }
+        }
+    </script>
 
     <!-- 右侧 JSON 文字区域 -->
     <div id="textSection">
