@@ -169,7 +169,7 @@
                 sha: sha
             };
 
-            const token = "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";
+            const token = prompt("请输入 GitHub 个人访问令牌 (PAT) 以保存修改：");
             if (!token) return;
 
             const response = await fetch(apiUrl, {
