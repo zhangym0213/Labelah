@@ -182,10 +182,13 @@
                 body: JSON.stringify(updateData)
             });
 
+            const resJson = await response.json();
+            console.log(resJson);  // 打印 API 响应内容，检查错误信息
+
             if (response.ok) {
                 alert("JSON 文件已成功更新！");
             } else {
-                alert("更新失败，请检查权限或 PAT 令牌！");
+                alert(`更新失败：${resJson.message}`);
             }
         }
 
