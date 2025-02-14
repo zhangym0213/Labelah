@@ -9,34 +9,40 @@
             display: flex;
             height: 100vh;
             margin: 0;
+            font-family: Arial, sans-serif;
         }
-        #videoSection {
-            flex: 3;
+        #videoSection, #textSection {
             display: flex;
             flex-direction: column;
             padding: 10px;
+        }
+        #videoSection {
+            flex: 3;
             border-right: 2px solid #ccc;
         }
         #textSection {
             flex: 2;
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
         }
-        input, select {
-            margin-bottom: 10px;
+        input {
+            width: 90%;
             padding: 5px;
-            width: 100%;
+            margin-bottom: 10px;
+        }
+        select {
+            width: 95%;
+            padding: 5px;
+            height: 120px;
         }
         video {
             width: 100%;
-            height: auto;
-            max-height: 80vh;
+            max-height: 60vh;
+            margin-top: 10px;
         }
         textarea {
             width: 100%;
-            height: 80vh;
+            height: 50vh;
             resize: none;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -54,12 +60,19 @@
         <h3>搜索 JSON 文件</h3>
         <input type="text" id="jsonSearch" placeholder="输入 JSON 文件名称">
         <select id="jsonList" size="5"></select>
+
+        <h4>筛选 JSON 内容</h4>
+        <input type="text" id="filterVideo" placeholder="按 Video 筛选">
+        <input type="text" id="filterSource" placeholder="按 Source 筛选">
+        <input type="text" id="filterTask" placeholder="按 Task 筛选">
+
         <textarea id="jsonViewer" readonly></textarea>
     </div>
 
     <script>
         const repoOwner = "zhangym0213";  // GitHub 用户名
         const repoName = "Labelah";       // GitHub 仓库名
+        let jsonData = [];  // 存储当前 JSON 数据
 
         // 加载视频文件列表
         async function loadVideos() {
@@ -100,10 +113,30 @@
 
             jsonList.addEventListener("change", async () => {
                 const res = await fetch(jsonList.value);
-                const content = await res.json();
-                document.getElementById("jsonViewer").value = JSON.stringify(content, null, 2);
+                jsonData = await res.json();
+                applyJsonFilters();
             });
         }
+
+        // 过滤 JSON 数据
+        function applyJsonFilters() {
+            const videoFilter = document.getElementById("filterVideo").value.toLowerCase();
+            const sourceFilter = document.getElementById("filterSource").value.toLowerCase();
+            const taskFilter = document.getElementById("filterTask").value.toLowerCase();
+
+            let filteredData = jsonData.filter(item => {
+                return (!videoFilter || (item.Video && item.Video.toLowerCase().includes(videoFilter))) &&
+                       (!sourceFilter || (item.Source && item.Source.toLowerCase().includes(sourceFilter))) &&
+                       (!taskFilter || (item.Task && item.Task.toLowerCase().includes(taskFilter)));
+            });
+
+            document.getElementById("jsonViewer").value = JSON.stringify(filteredData, null, 2);
+        }
+
+        // 监听筛选框变化
+        document.getElementById("filterVideo").addEventListener("input", applyJsonFilters);
+        document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
+        document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
 
         // 过滤搜索功能
         function setupSearch(inputId, listId) {
