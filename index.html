@@ -162,7 +162,6 @@
         document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
         document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
 
-        // 提交修改的 JSON 数据到 GitHub
         async function saveJsonToGitHub() {
             if (!jsonFilePath) {
                 alert("请先选择 JSON 文件！");
@@ -171,7 +170,7 @@
 
             const newData = document.getElementById("jsonViewer").value;
             try {
-                JSON.parse(newData);  // 检查 JSON 格式是否正确
+                JSON.parse(newData);  // 确保 JSON 格式正确
             } catch (e) {
                 alert("JSON 格式错误，请检查后再提交！");
                 return;
@@ -180,7 +179,7 @@
             const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFilePath}`;
             const res = await fetch(apiUrl);
             const fileData = await res.json();
-            const sha = fileData.sha;  // 需要提供文件的 SHA 才能修改
+            const sha = fileData.sha;  // 需要文件的 SHA 才能修改
 
             const updateData = {
                 message: "更新 JSON 文件",
@@ -202,16 +201,29 @@
             });
 
             const resJson = await response.json();
-            console.log(resJson);  // 打印 API 响应内容，检查错误信息
+            console.log(resJson);  // 检查 API 响应信息
 
             if (response.ok) {
                 alert("JSON 文件已成功更新！");
+                
+                // **新增：延迟1秒后重新加载JSON文件，确保GitHub更新完成**
+                setTimeout(() => {
+                    loadSelectedJson();
+                }, 1000);
             } else {
                 alert(`更新失败：${resJson.message}`);
             }
         }
 
-        document.getElementById("saveJson").addEventListener("click", saveJsonToGitHub);
+        // **新增：重新加载选中的 JSON 文件**
+        async function loadSelectedJson() {
+            if (!jsonFilePath) return;
+            const fileUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${jsonFilePath}`;
+            const res = await fetch(fileUrl);
+            jsonData = await res.json();
+            applyJsonFilters();  // 重新应用筛选条件
+        }
+
 
         // 过滤搜索功能
         function setupSearch(inputId, listId) {
