@@ -162,6 +162,7 @@
         document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
         document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
 
+        // 提交修改的 JSON 数据到 GitHub
         async function saveJsonToGitHub() {
             if (!jsonFilePath) {
                 alert("请先选择 JSON 文件！");
@@ -170,72 +171,35 @@
 
             const newData = document.getElementById("jsonViewer").value;
             try {
-                JSON.parse(newData);  // 确保 JSON 格式正确
+                JSON.parse(newData);  // 检查 JSON 格式是否正确
             } catch (e) {
                 alert("JSON 格式错误，请检查后再提交！");
                 return;
             }
 
-            const branchName = `update-json-${Date.now()}`;
-            const baseApiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}`;
-            
-            // 获取 main 分支的最新 SHA
-            const mainRef = await fetch(`${baseApiUrl}/git/refs/heads/main`, {
-                headers: { "Authorization": `token ${token}` }
-            }).then(res => res.json());
-            const mainSha = mainRef.object.sha;
+            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${jsonFilePath}`;
+            const res = await fetch(apiUrl);
+            const fileData = await res.json();
+            const sha = fileData.sha;  // 需要提供文件的 SHA 才能修改
 
-            // 创建新分支
-            await fetch(`${baseApiUrl}/git/refs`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `token ${token}`,
-                    "Accept": "application/vnd.github.v3+json"
-                },
-                body: JSON.stringify({
-                    ref: `refs/heads/${branchName}`,
-                    sha: mainSha
-                })
-            });
+            const updateData = {
+                message: "更新 JSON 文件",
+                content: btoa(unescape(encodeURIComponent(newData))),  // Base64 编码
+                sha: sha
+            };
 
-            // 获取 JSON 文件 SHA
-            const fileData = await fetch(`${baseApiUrl}/contents/${jsonFilePath}`, {
-                headers: { "Authorization": `token ${token}` }
-            }).then(res => res.json());
-            const fileSha = fileData.sha;
 
-            // 提交更新
-            await fetch(`${baseApiUrl}/contents/${jsonFilePath}`, {
+            if (!token) return;
+
+            const response = await fetch(apiUrl, {
                 method: "PUT",
                 headers: {
                     "Authorization": `token ${token}`,
-                    "Accept": "application/vnd.github.v3+json"
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    message: "更新 JSON 文件",
-                    content: btoa(unescape(encodeURIComponent(newData))),
-                    sha: fileSha,
-                    branch: branchName
-                })
+                body: JSON.stringify(updateData)
             });
-
-            // 创建 Pull Request
-            await fetch(`${baseApiUrl}/pulls`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `token ${token}`,
-                    "Accept": "application/vnd.github.v3+json"
-                },
-                body: JSON.stringify({
-                    title: "自动更新 JSON 文件",
-                    head: branchName,
-                    base: "main",
-                    body: "这个 PR 由前端代码自动创建，用于更新 JSON 文件"
-                })
-            });
-
-            alert("JSON 更新已提交，GitHub Actions 正在合并！");
-        }
 
             const resJson = await response.json();
             console.log(resJson);  // 打印 API 响应内容，检查错误信息
