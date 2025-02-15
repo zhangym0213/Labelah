@@ -162,6 +162,7 @@
         document.getElementById("filterSource").addEventListener("input", applyJsonFilters);
         document.getElementById("filterTask").addEventListener("input", applyJsonFilters);
 
+        const token = Prompt("请输入token");
         // 提交修改的 JSON 数据到 GitHub
         async function saveJsonToGitHub() {
             if (!jsonFilePath) {
